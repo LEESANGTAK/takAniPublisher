@@ -1,5 +1,6 @@
 import os
 
+NAME = 'Tak Ani Publisher'
 VERSION = '1.0.0'
 
 CONTENTS_DIR = __file__.split('scripts')[0]

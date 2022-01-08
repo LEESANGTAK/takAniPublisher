@@ -4,10 +4,14 @@ import os
 from shiboken2 import wrapInstance
 from PySide2 import QtWidgets, QtCore, QtGui
 
+from . import logger
 from . import settingsUI
 from . import constants
+from . import aniPublisherModels as aniPubModels
 
+reload(takAniPublisher)  # type: ignore
 reload(settingsUI)  # type: ignore
+reload(aniPubModels)  # type: ignore
 
 
 def getMayaMainWin():
@@ -20,17 +24,15 @@ def getMayaMainWin():
 
 
 class AniPublisherUI(QtWidgets.QDialog):
-    NAME = 'TAK Ani Publisher_Personal'
-
     def __init__(self, aniPublisher=None, parent=getMayaMainWin()):
         super(AniPublisherUI, self).__init__(parent)
 
         self.aniPubObj = aniPublisher
         self.publishItemWidgets = []
 
-        self.setWindowTitle('{0} - {1}'.format(AniPublisherUI.NAME, constants.VERSION))
+        self.setWindowTitle('{0}_Personal - {1}'.format(constants.NAME, constants.VERSION))
         self.setWindowIcon(QtGui.QIcon(':out_timeEditorAnimSource.png'))
-        self.resize(1000, 1000)
+        self.resize(900, 1000)
 
         self.createWidgets()
         self.createLayouts()
@@ -43,11 +45,11 @@ class AniPublisherUI(QtWidgets.QDialog):
         self.settingsAction = self.editMenu.addAction('Settings')
 
         self.itemMasterChkBox = QtWidgets.QCheckBox()
+        self.itemMasterMoveToOriginLabel = QtWidgets.QLabel('Move to Origin: ')
         self.itemMasterMoveToOriginChkBox = QtWidgets.QCheckBox()
+        self.itemMasterExportDirLabel = QtWidgets.QLabel('Export Directory: ')
         self.itemMasterExportDirLe = QtWidgets.QLineEdit()
         self.itemMasterGetDirectoryBtn = QtWidgets.QPushButton()
-        self.itemMasterStartFrameLe = QtWidgets.QLineEdit()
-        self.itemMasterEndFrameLe = QtWidgets.QLineEdit()
 
         for item in self.aniPubObj.publishItems:
             self.publishItemWidgets.append(PublishItemWidget(item))
@@ -61,16 +63,11 @@ class AniPublisherUI(QtWidgets.QDialog):
 
         itemMasterLayout = QtWidgets.QHBoxLayout()
         itemMasterLayout.addWidget(self.itemMasterChkBox)
+        itemMasterLayout.addWidget(self.itemMasterMoveToOriginLabel)
         itemMasterLayout.addWidget(self.itemMasterMoveToOriginChkBox)
+        itemMasterLayout.addWidget(self.itemMasterExportDirLabel)
         itemMasterLayout.addWidget(self.itemMasterExportDirLe)
         itemMasterLayout.addWidget(self.itemMasterGetDirectoryBtn)
-        masterFrameWdg = QtWidgets.QWidget()
-        masterFrameWdg.setFixedWidth(200)
-        masterFrameLo = QtWidgets.QHBoxLayout(masterFrameWdg)
-        masterFrameLo.addWidget(self.itemMasterStartFrameLe)
-        masterFrameLo.addWidget(QtWidgets.QLabel('~'))
-        masterFrameLo.addWidget(self.itemMasterEndFrameLe)
-        itemMasterLayout.addWidget(masterFrameWdg)
         mainLayout.addLayout(itemMasterLayout)
 
         scrollArea = QtWidgets.QScrollArea()
@@ -96,8 +93,6 @@ class AniPublisherUI(QtWidgets.QDialog):
         self.itemMasterMoveToOriginChkBox.stateChanged.connect(self.setItemWidgetsMoveToOrigin)
         self.itemMasterGetDirectoryBtn.clicked.connect(lambda: self.setDirectoryPath(self.itemMasterExportDirLe))
         self.itemMasterExportDirLe.textChanged.connect(self.setItemWidgetsExportDir)
-        self.itemMasterStartFrameLe.textChanged.connect(self.setItemWidgetsStartFrame)
-        self.itemMasterEndFrameLe.textChanged.connect(self.setItemWidgetsEndFrame)
         self.publishBtn.clicked.connect(self.publishAnimation)
 
     def showSettingsUI(self):
@@ -105,7 +100,9 @@ class AniPublisherUI(QtWidgets.QDialog):
         setUI.show()
 
     def setInitialState(self):
+        self.itemMasterChkBox.setMinimumWidth(50)
         self.itemMasterChkBox.setCheckState(QtCore.Qt.Checked)
+        self.itemMasterMoveToOriginChkBox.setMinimumWidth(50)
         self.itemMasterGetDirectoryBtn.setIcon(QtGui.QIcon(':fileOpen.png'))
 
     def setItemWidgetsMoveToOrigin(self, val):
@@ -142,16 +139,6 @@ class AniPublisherUI(QtWidgets.QDialog):
             if itemWidget.publishItem.enable:
                 itemWidget.exportDirectoryLe.setText(text)
 
-    def setItemWidgetsStartFrame(self, text):
-        for itemWidget in self.publishItemWidgets:
-            if itemWidget.publishItem.enable:
-                itemWidget.startFrameLe.setText(text)
-
-    def setItemWidgetsEndFrame(self, text):
-        for itemWidget in self.publishItemWidgets:
-            if itemWidget.publishItem.enable:
-                itemWidget.endFrameLe.setText(text)
-
     def closeEvent(self, event):
         super(AniPublisherUI, self).closeEvent(event)
 
@@ -174,6 +161,7 @@ class PublishItemWidget(QtWidgets.QWidget):
         super(PublishItemWidget, self).__init__()
 
         self.publishItem = publishItem
+        self.clipWidgets = []
 
         self.createWidgets()
         self.createLayouts()
@@ -188,15 +176,14 @@ class PublishItemWidget(QtWidgets.QWidget):
         self.imageLabel = QtWidgets.QLabel()
         self.imageLabelText = QtWidgets.QLabel()
 
-        self.moveToOriginLabel = QtWidgets.QLabel('Move to Origin:')
+        self.moveToOriginLabel = QtWidgets.QLabel('Move to Origin: ')
         self.moveToOriginChkBox = QtWidgets.QCheckBox()
 
-        self.exportSkelLabel = QtWidgets.QLabel('Export Skeleton:')
+        self.exportSkelLabel = QtWidgets.QLabel('Export Skeleton: ')
         self.exportSkelChkBox = QtWidgets.QCheckBox()
 
-        self.exportModelLabel = QtWidgets.QLabel('Export Model:')
+        self.exportModelLabel = QtWidgets.QLabel('Export Model: ')
         self.exportModelChkBox = QtWidgets.QCheckBox()
-        self.exportModelChkBox.setToolTip('Enable when needs to export blendshape')
 
         self.exportNodesLabel = QtWidgets.QLabel('Export Nodes:')
         self.exportSkeletonLe = QtWidgets.QLineEdit(placeholderText='Skeleton Root Node')
@@ -205,13 +192,6 @@ class PublishItemWidget(QtWidgets.QWidget):
         self.exportDirectoryLabel = QtWidgets.QLabel('Export Directory:')
         self.exportDirectoryLe = QtWidgets.QLineEdit()
         self.getDirectoryBtn = QtWidgets.QPushButton()
-
-        self.filenameLabel = QtWidgets.QLabel('Filename:')
-        self.filenameLe = QtWidgets.QLineEdit()
-
-        self.frameRangeLabel = QtWidgets.QLabel('Frame Range:')
-        self.startFrameLe = QtWidgets.QLineEdit()
-        self.endFrameLe = QtWidgets.QLineEdit()
 
     def createLayouts(self):
         mainLayout = QtWidgets.QHBoxLayout(self)
@@ -225,42 +205,34 @@ class PublishItemWidget(QtWidgets.QWidget):
         mainLayout.addLayout(imageLayout)
         PublishItemWidget.addSeparator(mainLayout)
 
-        publishOptionLayout = QtWidgets.QGridLayout()
-        chekWdg = QtWidgets.QWidget()
-        chekLo = QtWidgets.QHBoxLayout(chekWdg)
-        chekLo.addWidget(self.moveToOriginLabel)
-        chekLo.addWidget(self.moveToOriginChkBox)
-        chekLo.addWidget(self.exportSkelLabel)
-        chekLo.addWidget(self.exportSkelChkBox)
-        chekLo.addWidget(self.exportModelLabel)
-        chekLo.addWidget(self.exportModelChkBox)
-        publishOptionLayout.addWidget(chekWdg, 0, 1)
+        publishOptionLayout = QtWidgets.QVBoxLayout()
 
-        publishOptionLayout.addWidget(self.exportNodesLabel, 1, 0, QtCore.Qt.AlignRight)
-        exportNodesWidget = QtWidgets.QWidget()
-        exportNodesLayout = QtWidgets.QHBoxLayout(exportNodesWidget)
+        checkLayout = QtWidgets.QHBoxLayout()
+        checkLayout.addWidget(self.moveToOriginLabel)
+        checkLayout.addWidget(self.moveToOriginChkBox)
+        checkLayout.addWidget(self.exportSkelLabel)
+        checkLayout.addWidget(self.exportSkelChkBox)
+        checkLayout.addWidget(self.exportModelLabel)
+        checkLayout.addWidget(self.exportModelChkBox)
+        publishOptionLayout.addLayout(checkLayout)
+
+        exportNodesLayout = QtWidgets.QHBoxLayout()
+        exportNodesLayout.addWidget(self.exportNodesLabel)
         exportNodesLayout.addWidget(self.exportSkeletonLe)
         exportNodesLayout.addWidget(self.exportModelLe)
-        publishOptionLayout.addWidget(exportNodesWidget, 1, 1)
+        publishOptionLayout.addLayout(exportNodesLayout)
 
-        publishOptionLayout.addWidget(self.exportDirectoryLabel, 2, 0, QtCore.Qt.AlignRight)
-        publishOptionLayout.addWidget(self.exportDirectoryLe, 2, 1)
-        publishOptionLayout.addWidget(self.getDirectoryBtn, 2, 2)
+        exportDirLayout = QtWidgets.QHBoxLayout()
+        exportDirLayout.addWidget(self.exportDirectoryLabel)
+        exportDirLayout.addWidget(self.exportDirectoryLe)
+        exportDirLayout.addWidget(self.getDirectoryBtn)
+        publishOptionLayout.addLayout(exportDirLayout)
 
-        publishOptionLayout.addWidget(self.filenameLabel, 3, 0, QtCore.Qt.AlignRight)
-        publishOptionLayout.addWidget(self.filenameLe, 3, 1)
-
-        publishOptionLayout.addWidget(self.frameRangeLabel, 4, 0, QtCore.Qt.AlignRight)
-        frameWdg = QtWidgets.QWidget()
-        frameWdg.setFixedWidth(200)
-        frameLo = QtWidgets.QHBoxLayout(frameWdg)
-        frameLo.addWidget(self.startFrameLe)
-        waveSign = QtWidgets.QLabel('~')
-        frameLo.addWidget(waveSign)
-        frameLo.addWidget(self.endFrameLe)
-        publishOptionLayout.addWidget(frameWdg, 4, 1)
-
+        self.clipLayout = QtWidgets.QVBoxLayout()
+        ClipWidget(self)
+        publishOptionLayout.addLayout(self.clipLayout)
         self.publishOptionWidget.setLayout(publishOptionLayout)
+
         mainLayout.addWidget(self.publishOptionWidget)
 
     def createConnections(self):
@@ -272,14 +244,11 @@ class PublishItemWidget(QtWidgets.QWidget):
         self.exportModelLe.textChanged.connect(self.setPublishItemExportModelRoot)
         self.getDirectoryBtn.clicked.connect(lambda: self.setDirectoryPath(self.exportDirectoryLe))
         self.exportDirectoryLe.textChanged.connect(self.setPublishItemExportDirectory)
-        self.filenameLe.textChanged.connect(self.setPublishItemFilename)
-        self.startFrameLe.textChanged.connect(self.setStartFrame)
-        self.endFrameLe.textChanged.connect(self.setEndFrame)
 
     def initializeWidgets(self):
         self.enableChkBox.setCheckState(QtCore.Qt.Checked)
         self.exportSkelChkBox.setCheckState(QtCore.Qt.Checked)
-
+        self.exportModelChkBox.setToolTip('Enable when needs to export blendshape')
         self.exportModelLe.setEnabled(False)
 
         pixmap = QtGui.QPixmap(self.publishItem.image)
@@ -288,10 +257,6 @@ class PublishItemWidget(QtWidgets.QWidget):
 
         self.getDirectoryBtn.setIcon(QtGui.QIcon(':fileOpen.png'))
         self.exportDirectoryLe.setText(self.publishItem.exportDirectory)
-        self.filenameLe.setText(self.publishItem.filename)
-
-        self.startFrameLe.setText(str(self.publishItem.startFrame))
-        self.endFrameLe.setText(str(self.publishItem.endFrame))
 
     def setPublishItemEnable(self, state):
         self.publishItem.enable = bool(state)
@@ -336,19 +301,92 @@ class PublishItemWidget(QtWidgets.QWidget):
     def setPublishItemFilename(self, filename):
         self.publishItem.filename = filename
 
-    def setStartFrame(self, frame):
-        self.publishItem.startFrame = frame
-
-    def setEndFrame(self, frame):
-        self.publishItem.endFrame = frame
-
     @staticmethod
     def addSeparator(layout):
         separator = QtWidgets.QFrame()
         separator.setFrameShape(QtWidgets.QFrame.VLine)
         separator.setFixedWidth(1)
-        separator.setFixedHeight(75)
+        separator.setFixedHeight(200)
 
         separator.setStyleSheet('background-color: rgb(100, 100, 100);')
 
         layout.addWidget(separator)
+
+
+class ClipWidget(QtWidgets.QWidget):
+    def __init__(self, pubWidget, parent=None):
+        super(ClipWidget, self).__init__(parent)
+
+        self.createWidgets()
+        self.createLayouts()
+        self.createConnections()
+        self.setDefaults()
+
+        self.pubWidget = pubWidget
+
+        self.clip = aniPubModels.Clip()
+        self.pubWidget.publishItem.clips.append(self.clip)
+
+        self.pubWidget.clipLayout.addWidget(self)
+
+    def createWidgets(self):
+        self.delBtn = QtWidgets.QPushButton()
+        self.clipNameLe = QtWidgets.QLineEdit(placeholderText='Clip Name')
+        self.startFrameLe = QtWidgets.QLineEdit(placeholderText='Start')
+        self.endFrameLe = QtWidgets.QLineEdit(placeholderText='End')
+        self.addBtn = QtWidgets.QPushButton()
+
+    def createLayouts(self):
+        mainLayout = QtWidgets.QHBoxLayout(self)
+        mainLayout.addWidget(self.delBtn)
+        mainLayout.addWidget(self.clipNameLe)
+        mainLayout.addWidget(self.startFrameLe)
+        mainLayout.addWidget(self.endFrameLe)
+        mainLayout.addWidget(self.addBtn)
+
+    def createConnections(self):
+        self.clipNameLe.textChanged.connect(self.setClipName)
+        self.startFrameLe.textChanged.connect(self.setStartFrame)
+        self.endFrameLe.textChanged.connect(self.setEndFrame)
+        self.delBtn.clicked.connect(self.delWidget)
+        self.addBtn.clicked.connect(self.addWidget)
+
+    def setDefaults(self):
+        self.delBtn.setIcon(QtGui.QIcon(':trash.png'))
+        self.delBtn.setVisible(False)
+        self.clipNameLe.setMinimumWidth(300)
+        self.clipNameLe.setEnabled(False)
+        self.startFrameLe.setMaximumWidth(75)
+        self.startFrameLe.setEnabled(False)
+        self.endFrameLe.setMaximumWidth(75)
+        self.endFrameLe.setEnabled(False)
+        self.addBtn.setIcon(QtGui.QIcon(':addCreateGeneric.png'))
+
+    def setClipName(self, val):
+        self.clip.name = val
+
+    def setStartFrame(self, val):
+        self.clip.startFrame = int(val)
+
+    def setEndFrame(self, val):
+        self.clip.endFrame = int(val)
+
+    def delWidget(self):
+        self.pubWidget.publishItem.clips.remove(self.clip)
+        self.deleteLater()
+        for clip in self.pubWidget.publishItem.clips:
+            logger.debug('{0}, {1}, {2}, {3}'.format(clip.enable, clip.name, clip.startFrame, clip.endFrame))
+
+    def addWidget(self):
+        self.clip.enable = True
+        self.enableWidget()
+        ClipWidget(self.pubWidget)
+        for clip in self.pubWidget.publishItem.clips:
+            logger.debug('{0}, {1}, {2}, {3}'.format(clip.enable, clip.name, clip.startFrame, clip.endFrame))
+
+    def enableWidget(self):
+        self.delBtn.setVisible(True)
+        self.clipNameLe.setEnabled(True)
+        self.startFrameLe.setEnabled(True)
+        self.endFrameLe.setEnabled(True)
+        self.addBtn.setVisible(False)

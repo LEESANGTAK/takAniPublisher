@@ -6,17 +6,16 @@ Description: Exports skeleton and blendshapes animation data.
 
 import os
 import re
-import logging
 import glob
 
 import pymel.core as pm
 
+from . import logger
 from . import utils
+from . import constants
+
 reload(utils)  # type: ignore
-
-
-logger = logging.getLogger('TAK Ani Publisher')
-logger.setLevel('DEBUG')
+reload(constants)  # type: ignore
 
 
 class AniPublisher(object):
@@ -35,55 +34,66 @@ class AniPublisher(object):
         self.publishItems = pubItems
 
     def publish(self):
+        pm.refresh(suspend=True)
+
         for pubItem in self.publishItems:
             if not pubItem.enable:
                 continue
+            if not pubItem.skeletonRoot:
+                logger.error('"{0}" is not specified skeleton root node.'.format(pubItem.namespace))
+                continue
 
-            self._setPlaybackRange(pubItem)
-
-            pm.refresh(suspend=True)
-
-            # Make skeletonRoot channel values in world
             skelRoot = pm.PyNode(pubItem.skeletonRoot)
-            skelRootLoc = None
-            skelRootInheritsTransformValOrig = skelRoot.inheritsTransform.get()
-            isConst = utils.isConstrained(skelRoot)
-            if not isConst:  # Turning off inheritsTransform will make skeletonRoot jump to other position if not constrained
-                skelRootLoc = pm.spaceLocator(n='{0}_loc'.format(skelRoot))
-                pm.matchTransform(skelRootLoc, skelRoot)
-                pm.parentConstraint(skelRootLoc, skelRoot)
-                pm.scaleConstraint(skelRootLoc, skelRoot)
-            skelRoot.inheritsTransform.set(False)
+            skelRootLoc, skelRootInheritsTransformValOrig = self.makeSkeletonRootInWorld(skelRoot)
 
-            # Select nodes to export
-            if pubItem.exportSkeleton:
-                pm.select(pubItem.skeletonRoot, r=True)
-            if pubItem.exportModel:
-                pm.select(pubItem.modelRoot, add=True)
+            for clip in pubItem.clips:
+                if not clip.enable:
+                    continue
 
-            # Export fbx
-            utils.setFBXExportOptions(pubItem.startFrame, pubItem.endFrame)
-            fullPathFilename = os.path.join(pubItem.exportDirectory, pubItem.filename).replace('\\', '/') + '.fbx'
-            pm.mel.eval('FBXExport -f "{0}" -s'.format(fullPathFilename))
+                self._setPlaybackRange(clip)
+
+                # Select nodes to export
+                if pubItem.exportSkeleton:
+                    pm.select(pubItem.skeletonRoot, r=True)
+                if pubItem.exportModel:
+                    pm.select(pubItem.modelRoot, add=True)
+
+                # Export fbx
+                utils.setFBXExportOptions(clip.startFrame, clip.endFrame)
+                fullPathFilename = os.path.join(pubItem.exportDirectory, clip.name).replace('\\', '/') + '.fbx'
+                pm.mel.eval('FBXExport -f "{0}" -s'.format(fullPathFilename))
+
+                # Edit fbx file
+                self._editFBX(fullPathFilename, pubItem)
+                logger.info('"{0}" clip has exported successfully.'.format(clip.name))
 
             # Restore skeletonRoot state
             if skelRootLoc:
                 pm.delete(skelRootLoc)
             skelRoot.inheritsTransform.set(skelRootInheritsTransformValOrig)
 
-            pm.refresh(suspend=False)
-
-            # Edit fbx file
-            self._editFBX(fullPathFilename, pubItem)
-            logger.info('"{0}" animation has exported successfully.'.format(pubItem.namespace))
-
         self._recoverScenePlaybackRange()
+
+        pm.refresh(suspend=False)
 
         return True
 
-    def _setPlaybackRange(self, pubItem):
-        pm.env.setMinTime(pubItem.startFrame)
-        pm.env.setMaxTime(pubItem.endFrame)
+    def makeSkeletonRootInWorld(self, skelRoot):
+        skelRootLoc = None
+        skelRootInheritsTransformValOrig = skelRoot.inheritsTransform.get()
+        isConst = utils.isConstrained(skelRoot)
+        if not isConst:  # Turning off inheritsTransform will make skeletonRoot jump to other position if not constrained
+            skelRootLoc = pm.spaceLocator(n='{0}_loc'.format(skelRoot))
+            pm.matchTransform(skelRootLoc, skelRoot)
+            pm.parentConstraint(skelRootLoc, skelRoot)
+            pm.scaleConstraint(skelRootLoc, skelRoot)
+        skelRoot.inheritsTransform.set(False)
+
+        return skelRootLoc, skelRootInheritsTransformValOrig
+
+    def _setPlaybackRange(self, clip):
+        pm.env.setMinTime(clip.startFrame)
+        pm.env.setMaxTime(clip.endFrame)
 
     def _recoverScenePlaybackRange(self):
         pm.env.setMinTime(self._minTime)
@@ -127,7 +137,7 @@ class AniPublisher(object):
             skelRootNewBlock = skelRootOldBlock.group().replace(skelRootPropertyOld, skelRootPropertyNew)
             contents = contents.replace(skelRootOldBlock.group(), skelRootNewBlock)
 
-            contents = re.sub(r'\t;AnimCurveNode::.*?Model::.*?%s\n\tC: "OP".*?\n' % (pubItem.skeletonRoot), '', contents)  # Remove root joint anim curves
+            contents = re.sub(r'\t;AnimCurveNode::.*?Model::.*?%s\n\tC: "OP".*?\n' % (pubItem.skeletonRoot), '', contents)  # Remove skeletonRoot anim curves
 
         # Remove namespace
         contents = contents.replace(':'+pubItem.namespace, '')
@@ -169,6 +179,8 @@ class PublishItem(object):
         self.modelRoot = None
         self.skeletonRoot = None
 
+        self.clips = []
+
         self.settings = utils.getSettings()
 
         self.__getReferenceInfo()
@@ -191,3 +203,12 @@ class PublishItem(object):
             exportDirectory = self.settings['customExportDirectory']
 
         return exportDirectory
+
+
+class Clip(object):
+    def __init__(self):
+        self.enable = False
+
+        self.name = None
+        self.startFrame = None
+        self.endFrame = None
