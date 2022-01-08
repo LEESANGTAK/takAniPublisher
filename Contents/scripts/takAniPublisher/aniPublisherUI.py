@@ -185,8 +185,22 @@ class PublishItemWidget(QtWidgets.QWidget):
 
         self.publishOptionWidget = QtWidgets.QWidget()
 
+        self.imageLabel = QtWidgets.QLabel()
+        self.imageLabelText = QtWidgets.QLabel()
+
         self.moveToOriginLabel = QtWidgets.QLabel('Move to Origin:')
         self.moveToOriginChkBox = QtWidgets.QCheckBox()
+
+        self.exportSkelLabel = QtWidgets.QLabel('Export Skeleton:')
+        self.exportSkelChkBox = QtWidgets.QCheckBox()
+
+        self.exportModelLabel = QtWidgets.QLabel('Export Model:')
+        self.exportModelChkBox = QtWidgets.QCheckBox()
+        self.exportModelChkBox.setToolTip('Enable when needs to export blendshape')
+
+        self.exportNodesLabel = QtWidgets.QLabel('Export Nodes:')
+        self.exportSkeletonLe = QtWidgets.QLineEdit(placeholderText='Skeleton Root Node')
+        self.exportModelLe = QtWidgets.QLineEdit(placeholderText='Model Root Node')
 
         self.exportDirectoryLabel = QtWidgets.QLabel('Export Directory:')
         self.exportDirectoryLe = QtWidgets.QLineEdit()
@@ -199,27 +213,44 @@ class PublishItemWidget(QtWidgets.QWidget):
         self.startFrameLe = QtWidgets.QLineEdit()
         self.endFrameLe = QtWidgets.QLineEdit()
 
-        self.exportNodesLabel = QtWidgets.QLabel('Export Nodes:')
-        self.exportSkeletonLe = QtWidgets.QLineEdit(placeholderText='Skeleton Root Node')
-        self.exportModelLe = QtWidgets.QLineEdit(placeholderText='Model Root Node')
-
     def createLayouts(self):
         mainLayout = QtWidgets.QHBoxLayout(self)
 
         mainLayout.addWidget(self.enableChkBox)
+        PublishItemWidget.addSeparator(mainLayout)
+
+        imageLayout = QtWidgets.QVBoxLayout()
+        imageLayout.addWidget(self.imageLabel, 1, QtCore.Qt.AlignCenter)
+        imageLayout.addWidget(self.imageLabelText, 1, QtCore.Qt.AlignCenter)
+        mainLayout.addLayout(imageLayout)
+        PublishItemWidget.addSeparator(mainLayout)
 
         publishOptionLayout = QtWidgets.QGridLayout()
-        publishOptionLayout.addWidget(self.moveToOriginLabel, 0, 0, QtCore.Qt.AlignRight)
-        publishOptionLayout.addWidget(self.moveToOriginChkBox, 0, 1)
+        chekWdg = QtWidgets.QWidget()
+        chekLo = QtWidgets.QHBoxLayout(chekWdg)
+        chekLo.addWidget(self.moveToOriginLabel)
+        chekLo.addWidget(self.moveToOriginChkBox)
+        chekLo.addWidget(self.exportSkelLabel)
+        chekLo.addWidget(self.exportSkelChkBox)
+        chekLo.addWidget(self.exportModelLabel)
+        chekLo.addWidget(self.exportModelChkBox)
+        publishOptionLayout.addWidget(chekWdg, 0, 1)
 
-        publishOptionLayout.addWidget(self.exportDirectoryLabel, 1, 0, QtCore.Qt.AlignRight)
-        publishOptionLayout.addWidget(self.exportDirectoryLe, 1, 1)
-        publishOptionLayout.addWidget(self.getDirectoryBtn, 1, 2)
+        publishOptionLayout.addWidget(self.exportNodesLabel, 1, 0, QtCore.Qt.AlignRight)
+        exportNodesWidget = QtWidgets.QWidget()
+        exportNodesLayout = QtWidgets.QHBoxLayout(exportNodesWidget)
+        exportNodesLayout.addWidget(self.exportSkeletonLe)
+        exportNodesLayout.addWidget(self.exportModelLe)
+        publishOptionLayout.addWidget(exportNodesWidget, 1, 1)
 
-        publishOptionLayout.addWidget(self.filenameLabel, 2, 0, QtCore.Qt.AlignRight)
-        publishOptionLayout.addWidget(self.filenameLe, 2, 1)
+        publishOptionLayout.addWidget(self.exportDirectoryLabel, 2, 0, QtCore.Qt.AlignRight)
+        publishOptionLayout.addWidget(self.exportDirectoryLe, 2, 1)
+        publishOptionLayout.addWidget(self.getDirectoryBtn, 2, 2)
 
-        publishOptionLayout.addWidget(self.frameRangeLabel, 3, 0, QtCore.Qt.AlignRight)
+        publishOptionLayout.addWidget(self.filenameLabel, 3, 0, QtCore.Qt.AlignRight)
+        publishOptionLayout.addWidget(self.filenameLe, 3, 1)
+
+        publishOptionLayout.addWidget(self.frameRangeLabel, 4, 0, QtCore.Qt.AlignRight)
         frameWdg = QtWidgets.QWidget()
         frameWdg.setFixedWidth(200)
         frameLo = QtWidgets.QHBoxLayout(frameWdg)
@@ -227,14 +258,7 @@ class PublishItemWidget(QtWidgets.QWidget):
         waveSign = QtWidgets.QLabel('~')
         frameLo.addWidget(waveSign)
         frameLo.addWidget(self.endFrameLe)
-        publishOptionLayout.addWidget(frameWdg, 3, 1)
-
-        publishOptionLayout.addWidget(self.exportNodesLabel, 4, 0, QtCore.Qt.AlignRight)
-        exportNodesWidget = QtWidgets.QWidget()
-        exportNodesLayout = QtWidgets.QHBoxLayout(exportNodesWidget)
-        exportNodesLayout.addWidget(self.exportSkeletonLe)
-        exportNodesLayout.addWidget(self.exportModelLe)
-        publishOptionLayout.addWidget(exportNodesWidget, 4, 1)
+        publishOptionLayout.addWidget(frameWdg, 4, 1)
 
         self.publishOptionWidget.setLayout(publishOptionLayout)
         mainLayout.addWidget(self.publishOptionWidget)
@@ -242,16 +266,25 @@ class PublishItemWidget(QtWidgets.QWidget):
     def createConnections(self):
         self.enableChkBox.stateChanged.connect(self.setPublishItemEnable)
         self.moveToOriginChkBox.stateChanged.connect(self.setPublishItemMoveToOrigin)
+        self.exportSkelChkBox.stateChanged.connect(self.setPublishItemExportSkeleton)
+        self.exportModelChkBox.stateChanged.connect(self.setPublishItemExportModel)
+        self.exportSkeletonLe.textChanged.connect(self.setPublishItemExportSkeletonRoot)
+        self.exportModelLe.textChanged.connect(self.setPublishItemExportModelRoot)
         self.getDirectoryBtn.clicked.connect(lambda: self.setDirectoryPath(self.exportDirectoryLe))
         self.exportDirectoryLe.textChanged.connect(self.setPublishItemExportDirectory)
         self.filenameLe.textChanged.connect(self.setPublishItemFilename)
         self.startFrameLe.textChanged.connect(self.setStartFrame)
         self.endFrameLe.textChanged.connect(self.setEndFrame)
-        self.exportSkeletonLe.textChanged.connect(self.setPublishItemExportSkeleton)
-        self.exportModelLe.textChanged.connect(self.setPublishItemExportModel)
 
     def initializeWidgets(self):
         self.enableChkBox.setCheckState(QtCore.Qt.Checked)
+        self.exportSkelChkBox.setCheckState(QtCore.Qt.Checked)
+
+        self.exportModelLe.setEnabled(False)
+
+        pixmap = QtGui.QPixmap(self.publishItem.image)
+        self.imageLabel.setPixmap(pixmap.scaled(100, 100, QtCore.Qt.KeepAspectRatio))
+        self.imageLabelText.setText(self.publishItem.namespace)
 
         self.getDirectoryBtn.setIcon(QtGui.QIcon(':fileOpen.png'))
         self.exportDirectoryLe.setText(self.publishItem.exportDirectory)
@@ -269,6 +302,20 @@ class PublishItemWidget(QtWidgets.QWidget):
 
     def setPublishItemMoveToOrigin(self, val):
         self.publishItem.moveToOrigin = val
+
+    def setPublishItemExportSkeleton(self, val):
+        self.publishItem.exportSkeleton = val
+        self.exportSkeletonLe.setEnabled(val)
+
+    def setPublishItemExportModel(self, val):
+        self.publishItem.exportModel = val
+        self.exportModelLe.setEnabled(val)
+
+    def setPublishItemExportSkeletonRoot(self, text):
+        self.publishItem.skeletonRoot = text
+
+    def setPublishItemExportModelRoot(self, text):
+        self.publishItem.modelRoot = text
 
     def setDirectoryPath(self, widget):
         curDir = widget.text()
@@ -294,12 +341,6 @@ class PublishItemWidget(QtWidgets.QWidget):
 
     def setEndFrame(self, frame):
         self.publishItem.endFrame = frame
-
-    def setPublishItemExportSkeleton(self, text):
-        self.publishItem.skeletonRoot = text
-
-    def setPublishItemExportModel(self, text):
-        self.publishItem.modelRoot = text
 
     @staticmethod
     def addSeparator(layout):

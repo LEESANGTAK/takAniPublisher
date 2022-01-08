@@ -7,6 +7,7 @@ Description: Exports skeleton and blendshapes animation data.
 import os
 import re
 import logging
+import glob
 
 import pymel.core as pm
 
@@ -55,8 +56,9 @@ class AniPublisher(object):
             skelRoot.inheritsTransform.set(False)
 
             # Select nodes to export
-            pm.select(pubItem.skeletonRoot, r=True)
-            if pubItem.modelRoot:
+            if pubItem.exportSkeleton:
+                pm.select(pubItem.skeletonRoot, r=True)
+            if pubItem.exportModel:
                 pm.select(pubItem.modelRoot, add=True)
 
             # Export fbx
@@ -135,16 +137,34 @@ class AniPublisher(object):
 
 
 class PublishItem(object):
-    def __init__(self, refNode, exportDirectory='', filename='', enable=True, moveToOrigin=False, startFrame=0, endFrame=1):
-        self.exportDirectory = exportDirectory
-        self.filename = filename
-        self.enable = enable
-        self.moveToOrigin = moveToOrigin
-        self.startFrame = startFrame
-        self.endFrame = endFrame
+    DEFAULT_IMAGE = ':noPreview.png'
+    IMAGE_EXT = 'jpg'
+
+    @staticmethod
+    def getImage(refFile):
+        image = PublishItem.DEFAULT_IMAGE
+
+        rigDirectory = os.path.dirname(refFile)
+
+        assetImages = glob.glob('{0}/*.{1}'.format(rigDirectory, PublishItem.IMAGE_EXT))
+        if assetImages:
+            image = assetImages[0]
+
+        return image
+
+    def __init__(self, refNode):
+        self.exportDirectory = ''
+        self.filename = ''
+        self.enable = True
+        self.moveToOrigin = False
+        self.exportSkeleton = True
+        self.exportModel = False
+        self.startFrame = 0
+        self.endFrame = 1
 
         self.refNode = refNode
         self.refFile = None
+        self.image = None
         self.namespace = None
         self.modelRoot = None
         self.skeletonRoot = None
@@ -155,6 +175,7 @@ class PublishItem(object):
 
     def __getReferenceInfo(self):
         self.refFile = pm.referenceQuery(self.refNode, filename=True)
+        self.image = PublishItem.getImage(self.refFile)
         self.namespace = pm.referenceQuery(self.refNode, namespace=True, shortName=True)
         self.exportDirectory = self.getExportDirectory(self.refFile)
         self.filename = self.namespace
