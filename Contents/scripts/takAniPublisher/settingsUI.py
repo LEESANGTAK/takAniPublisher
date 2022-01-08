@@ -2,10 +2,9 @@ from PySide2 import QtWidgets, QtCore
 
 import os
 import json
-import shutil
 
 from . import constants
-reload(constants)
+reload(constants)  # type: ignore
 
 
 class SettingsUI(QtWidgets.QDialog):
@@ -29,7 +28,6 @@ class SettingsUI(QtWidgets.QDialog):
     def createWidgets(self):
         self.useCustomExportDirChkBox = QtWidgets.QCheckBox('Use custom export directory as default.')
         self.customExportDirLe = QtWidgets.QLineEdit()
-        self.exportSetNameLe = QtWidgets.QLineEdit()
 
         self.saveBtn = QtWidgets.QPushButton('Save')
         self.cancelBtn = QtWidgets.QPushButton('Cancel')
@@ -40,7 +38,6 @@ class SettingsUI(QtWidgets.QDialog):
         formLayout = QtWidgets.QFormLayout()
         formLayout.addRow('Use Custom Export Directory: ', self.useCustomExportDirChkBox)
         formLayout.addRow('Custom Export Directory: ', self.customExportDirLe)
-        formLayout.addRow('Export Set Name: ', self.exportSetNameLe)
         mainLayout.addLayout(formLayout)
 
         btnLayout = QtWidgets.QHBoxLayout()
@@ -51,14 +48,12 @@ class SettingsUI(QtWidgets.QDialog):
     def createConnections(self):
         self.useCustomExportDirChkBox.stateChanged.connect(self.useCustomExportDirChkBoxSlot)
         self.customExportDirLe.textChanged.connect(lambda text: self.settings.update({'customExportDirectory': text}))
-        self.exportSetNameLe.textChanged.connect(lambda text: self.settings.update({'exportSetName': text}))
         self.saveBtn.clicked.connect(self.saveSettings)
         self.cancelBtn.clicked.connect(self.close)
 
     def setDefaults(self):
         self.useCustomExportDirChkBox.setChecked(self.settings['useCustomExportDirectory'])
         self.customExportDirLe.setText(self.settings['customExportDirectory'])
-        self.exportSetNameLe.setText(self.settings['exportSetName'])
 
         self.useCustomExportDirChkBoxSlot(self.settings['useCustomExportDirectory'])
 

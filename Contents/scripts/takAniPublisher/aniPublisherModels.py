@@ -1,28 +1,24 @@
 """
-Author: Tak
-Website: https://tak.ta-note.com
-Description: Exports skeleton joints and blendshapes animation data.
+Author: TAK
+Website: https://ta-note.com
+Description: Exports skeleton and blendshapes animation data.
 """
 
-import maya.OpenMaya as om
-import pymel.core as pm
-import maya.cmds as cmds
-import maya.mel as mel
-
 import os
-import glob
 import re
+import logging
+
+import pymel.core as pm
 
 from . import utils
+reload(utils)  # type: ignore
 
-reload(utils)
+
+logger = logging.getLogger('TAK Ani Publisher')
+logger.setLevel('DEBUG')
 
 
 class AniPublisher(object):
-    NAME = 'Tak Ani Publisher'
-    VERSION = '2.0.0'
-    CONFLICT_NAMES = ['Root', 'Geometry', 'Model']
-
     def __init__(self):
         super(AniPublisher, self).__init__()
         self.publishItems = []
@@ -44,17 +40,40 @@ class AniPublisher(object):
 
             self._setPlaybackRange(pubItem)
 
-            cmds.refresh(suspend=True)
+            pm.refresh(suspend=True)
 
-            cmds.select(pubItem.exportNodes, r=True)
-            utils.setFBXExportOptions(pubItem.startFrame, pubItem.endFrame, pubItem.exportBlendshape)
+            # Make skeletonRoot channel values in world
+            skelRoot = pm.PyNode(pubItem.skeletonRoot)
+            skelRootLoc = None
+            skelRootInheritsTransformValOrig = skelRoot.inheritsTransform.get()
+            isConst = utils.isConstrained(skelRoot)
+            if not isConst:  # Turning off inheritsTransform will make skeletonRoot jump to other position if not constrained
+                skelRootLoc = pm.spaceLocator(n='{0}_loc'.format(skelRoot))
+                pm.matchTransform(skelRootLoc, skelRoot)
+                pm.parentConstraint(skelRootLoc, skelRoot)
+                pm.scaleConstraint(skelRootLoc, skelRoot)
+            skelRoot.inheritsTransform.set(False)
+
+            # Select nodes to export
+            pm.select(pubItem.skeletonRoot, r=True)
+            if pubItem.modelRoot:
+                pm.select(pubItem.modelRoot, add=True)
+
+            # Export fbx
+            utils.setFBXExportOptions(pubItem.startFrame, pubItem.endFrame)
             fullPathFilename = os.path.join(pubItem.exportDirectory, pubItem.filename).replace('\\', '/') + '.fbx'
-            mel.eval('FBXExport -f "{0}" -s'.format(fullPathFilename))
+            pm.mel.eval('FBXExport -f "{0}" -s'.format(fullPathFilename))
 
-            cmds.refresh(suspend=False)
+            # Restore skeletonRoot state
+            if skelRootLoc:
+                pm.delete(skelRootLoc)
+            skelRoot.inheritsTransform.set(skelRootInheritsTransformValOrig)
 
+            pm.refresh(suspend=False)
+
+            # Edit fbx file
             self._editFBX(fullPathFilename, pubItem)
-            om.MGlobal.displayInfo('"{0}" animation has exported successfully.'.format(pubItem.namespace))
+            logger.info('"{0}" animation has exported successfully.'.format(pubItem.namespace))
 
         self._recoverScenePlaybackRange()
 
@@ -69,13 +88,10 @@ class AniPublisher(object):
         pm.env.setMaxTime(self._maxTime)
 
     def _editFBX(self, fbxFile, pubItem):
-        performChecker = utils.PerformanceChecker()
-
         with open(fbxFile, 'r') as f:
-            contents = f.read()
+            contents = unicode(f.read(), 'utf-8')  # type: ignore
 
         # Show joints
-        performChecker.start('Show Joint')
         subStrs = ''
         pattern = re.compile(r'\tModel:.*?"LimbNode" {.*?}.*?}\n', re.DOTALL)
         finds = pattern.findall(contents)
@@ -84,19 +100,18 @@ class AniPublisher(object):
                 subStr = re.sub(r'(\tP: "Show".*?),\d', r'\1,1', find)
                 subStrs += subStr
         contents = contents.replace(''.join(finds), subStrs)
-        performChecker.end()
 
-        # Parent root joint to the world
-        performChecker.start('Parent Root Joint to World')
-        rootJnt = [item for item in pubItem.exportNodes if pm.nodeType(item) == 'joint'][0]
-        contents = re.sub(r'(\t;Model.*?{0}, Model::).*?(\n\tC: "OO",\d+),\d+\n'.format(rootJnt), r'\1RootNode\2,0\n', contents)
-        performChecker.end()
+        # Parent skeletonRoot to the world
+        contents = re.sub(r'(\t;Model.*?{0}, Model::).*?(\n\tC: "OO",\d+),\d+\n'.format(pubItem.skeletonRoot), r'\1RootNode\2,0\n', contents)
 
-        # If bake space is local space, set root joint to default state
-        if pubItem.bakeSpace == 'local':
-            # Set default root joint state
-            newRootJntProperties = '''
-                        P: "PreRotation", "Vector3D", "Vector", "",-90,0,0
+        if pubItem.moveToOrigin:
+            jointOrientStr = '0,0,0'
+            skelRoot = pm.PyNode(pubItem.skeletonRoot)
+            if skelRoot.nodeType() == 'joint':
+                jointOrient = skelRoot.jointOrient.get()
+                jointOrientStr = '{0},{1},{2}'.format(jointOrient.x, jointOrient.y, jointOrient.z)
+            skelRootPropertyNew = '''
+                        P: "PreRotation", "Vector3D", "Vector", "",{0}
                         P: "RotationActive", "bool", "", "",1
                         P: "InheritType", "enum", "", "",1
                         P: "ScalingMax", "Vector3D", "Vector", "",0,0,0
@@ -104,88 +119,54 @@ class AniPublisher(object):
                         P: "DefaultAttributeIndex", "int", "Integer", "",0
                         P: "Lcl Translation", "Lcl Translation", "", "A",0,0,0
                         P: "Lcl Rotation", "Lcl Rotation", "", "A+",0,0,0
-            '''
-            oldRootJntBlock = re.search(r'\tModel:.*?"Model::.*?%s", "LimbNode" {.*?{(.*?)\t\t}.*?}\n' % (rootJnt), contents, re.DOTALL)
-            oldRootJntProperties = oldRootJntBlock.group(1)
-            newRootJntBlock = oldRootJntBlock.group().replace(oldRootJntProperties, newRootJntProperties)
-            contents = contents.replace(oldRootJntBlock.group(), newRootJntBlock)
+            '''.format(jointOrientStr)
+            skelRootOldBlock = re.search(r'\tModel:.*?"Model::.*?%s", "\w+?" {.*?{(.*?)\t\t}.*?}\n' % (pubItem.skeletonRoot), contents, re.DOTALL)
+            skelRootPropertyOld = skelRootOldBlock.group(1)
+            skelRootNewBlock = skelRootOldBlock.group().replace(skelRootPropertyOld, skelRootPropertyNew)
+            contents = contents.replace(skelRootOldBlock.group(), skelRootNewBlock)
 
-            contents = re.sub(r'\t;AnimCurveNode::.*?Model::.*?%s\n\tC: "OP".*?\n' %(rootJnt), '', contents)  # Remove root joint anim curves
+            contents = re.sub(r'\t;AnimCurveNode::.*?Model::.*?%s\n\tC: "OP".*?\n' % (pubItem.skeletonRoot), '', contents)  # Remove root joint anim curves
 
         # Remove namespace
-        performChecker.start('Remove Namespace')
         contents = contents.replace(':'+pubItem.namespace, '')
-        performChecker.end()
 
         with open(fbxFile, 'w') as f:
-            f.write(contents)
+            f.write(contents.encode('utf-8'))
 
 
 class PublishItem(object):
-    BAKE_SPACES = ['world', 'local']
-    DEFAULT_IMAGE = ':noPreview.png'
-    IMAGE_EXT = 'jpg'
-
-    def __init__(self, refNode=None, exportDirectory='', filename='', enable=True, bakeSpace='world', startFrame=0, endFrame=1, exportSkeleton=True, exportBlendshape=False):
-        self.refNode = refNode
+    def __init__(self, refNode, exportDirectory='', filename='', enable=True, moveToOrigin=False, startFrame=0, endFrame=1):
         self.exportDirectory = exportDirectory
         self.filename = filename
         self.enable = enable
-        self.bakeSpace = bakeSpace
+        self.moveToOrigin = moveToOrigin
         self.startFrame = startFrame
         self.endFrame = endFrame
-        self.exportSkeleton = exportSkeleton
-        self.exportBlendshape = exportBlendshape
 
+        self.refNode = refNode
         self.refFile = None
-        self.image = None
         self.namespace = None
-        self.exportNodes = None
+        self.modelRoot = None
+        self.skeletonRoot = None
 
         self.settings = utils.getSettings()
 
         self.__getReferenceInfo()
 
     def __getReferenceInfo(self):
-        self.refFile = cmds.referenceQuery(self.refNode, filename=True)
-        self.image = PublishItem.getImage(self.refFile)
-        self.namespace = cmds.referenceQuery(self.refNode, namespace=True).split(':')[-1]
-        self.exportNodes = cmds.sets('{0}:{1}'.format(self.namespace, self.settings['exportSetName']), q=True)
+        self.refFile = pm.referenceQuery(self.refNode, filename=True)
+        self.namespace = pm.referenceQuery(self.refNode, namespace=True, shortName=True)
         self.exportDirectory = self.getExportDirectory(self.refFile)
         self.filename = self.namespace
-        self.startFrame = cmds.playbackOptions(q=True, min=True)
-        self.endFrame = cmds.playbackOptions(q=True, max=True)
-
-    @staticmethod
-    def getImage(refFile):
-        image = PublishItem.DEFAULT_IMAGE
-
-        rigDirectory = os.path.dirname(refFile)
-
-        assetImages = glob.glob('{0}/*.{1}'.format(rigDirectory, PublishItem.IMAGE_EXT))
-        if assetImages:
-            image = assetImages[0]
-
-        return image
+        self.startFrame = pm.env.minTime
+        self.endFrame = pm.env.maxTime
 
     def getExportDirectory(self, refFile):
         exportDirectory = None
 
+        exportDirectory = os.path.dirname(refFile)
+
         if self.settings['useCustomExportDirectory']:
             exportDirectory = self.settings['customExportDirectory']
-        else:
-            parentDirLevel = 2
-            rigDirectory = os.path.dirname(refFile)
-            exportDirectory = rigDirectory.rsplit('/', parentDirLevel)[0] + '/Animations'
 
         return exportDirectory
-
-    @staticmethod
-    def getFilename(refFile):
-        filename = os.path.basename(refFile).split('.')[0]
-
-        curScenePath = cmds.file(q=True, sn=True)
-        if curScenePath:
-            filename = os.path.basename(curScenePath).split('.')[0]
-
-        return filename

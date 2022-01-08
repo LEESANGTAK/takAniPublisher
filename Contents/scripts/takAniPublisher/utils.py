@@ -37,14 +37,14 @@ def loadFBXPlugin():
         cmds.loadPlugin('fbxmaya')
 
 
-def setFBXExportOptions(startFrame, endFrame, shapes):
+def setFBXExportOptions(startFrame, endFrame):
     loadFBXPlugin()
 
     mel.eval('FBXResetExport;')
 
-    mel.eval('FBXExportSmoothingGroups -v false;')
-    mel.eval('FBXExportTangents -v false;')
-    mel.eval('FBXExportSmoothMesh -v false;')
+    mel.eval('FBXExportSmoothingGroups -v true;')
+    mel.eval('FBXExportTangents -v true;')
+    mel.eval('FBXExportSmoothMesh -v true;')
     mel.eval('FBXExportTriangulate -v false;')
 
     mel.eval('FBXExportAnimationOnly -v false;')
@@ -59,8 +59,6 @@ def setFBXExportOptions(startFrame, endFrame, shapes):
 
     mel.eval('FBXExportSkins -v true;')
     mel.eval('FBXExportShapes -v true;')
-    if not shapes:
-        mel.eval('FBXExportShapes -v false;')
 
     mel.eval('FBXExportLights -v false;')
     mel.eval('FBXExportCameras -v false;')
@@ -72,8 +70,8 @@ def setFBXExportOptions(startFrame, endFrame, shapes):
     mel.eval('FBXExportColladaTriangulate false;')
 
     mel.eval('FBXExportConstraints -v false;')
-    mel.eval('FBXExportInputConnections -v true;')
-    mel.eval('FBXExportSkeletonDefinitions -v false;')
+    mel.eval('FBXExportInputConnections -v false;')
+    mel.eval('FBXExportSkeletonDefinitions -v true;')
 
     mel.eval('FBXExportUpAxis y;')
     mel.eval('FBXExportScaleFactor 1.0;')
@@ -97,6 +95,10 @@ def getSettings():
     return settings
 
 
+def isConstrained(obj):
+    return bool(obj.inputs(type='constraint'))
+
+
 class PerformanceChecker(object):
     def __init__(self):
         super(PerformanceChecker, self).__init__()
@@ -110,5 +112,3 @@ class PerformanceChecker(object):
     def end(self):
         duration = time.time() - self._startTime
         pm.displayInfo('"{0}" job took {1}s.'.format(self._label, round(duration, 2)))
-
-

@@ -1,4 +1,3 @@
-import maya.cmds as cmds
 import pymel.core as pm
 
 from . import aniPublisherModels as apMdl
@@ -6,9 +5,9 @@ from . import aniPublisherUI as apUI
 
 from . import utils
 
-reload(apMdl)
-reload(apUI)
-reload(utils)
+reload(apMdl)  # type: ignore
+reload(apUI)  # type: ignore
+reload(utils)  # type: ignore
 
 
 class AniPublisherCtrl(object):
@@ -38,23 +37,24 @@ class AniPublisherCtrl(object):
         rigRefNodes = []
 
         for refNode in self.__validRefNodes:
-            refNamespace = cmds.referenceQuery(refNode, namespace=True)
-            if cmds.objExists('{0}:{1}'.format(refNamespace,  self.settings['exportSetName'])):
-                rigRefNodes.append(refNode)
+            for node in pm.referenceQuery(refNode, nodes=True):
+                if pm.nodeType(node) == 'joint':
+                    rigRefNodes.append(refNode)
+                    break
 
         self.__rigRefNodes = rigRefNodes
 
     def __getValidRefNodes(self):
         validRefNodes = []
 
-        refNodes = cmds.ls(type='reference')
+        refNodes = pm.ls(type='reference')
         for refNode in refNodes:
             try:  # Empty reference node
-                cmds.referenceQuery(refNode, filename=True)
-            except:
+                pm.referenceQuery(refNode, filename=True)
+            except RuntimeError:
                 continue
 
-            if not cmds.referenceQuery(refNode, isLoaded=True):  # Not loaded refrence node
+            if not pm.referenceQuery(refNode, isLoaded=True):  # Not loaded refrence node
                 continue
 
             validRefNodes.append(refNode)

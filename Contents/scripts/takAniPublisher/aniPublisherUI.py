@@ -1,45 +1,34 @@
-"""
-Test Code:
-import pipeline.aniPublisherUI as apui
-reload(apui)
-
-try:
-    apuiObj.close()
-    apuiObj.deleteLater()
-except:
-    pass
-
-apuiObj = apui.AniPublisherUI()
-apuiObj.show()
-"""
 import maya.OpenMayaUI as omui
-import maya.cmds as cmds
 
 import os
 from shiboken2 import wrapInstance
 from PySide2 import QtWidgets, QtCore, QtGui
 
 from . import settingsUI
-reload(settingsUI)
+from . import constants
+
+reload(settingsUI)  # type: ignore
 
 
 def getMayaMainWin():
-        mayaMainWinWidget = None
+    mayaMainWinWidget = None
 
-        mayaMainWinPtr = omui.MQtUtil.mainWindow()
-        mayaMainWinWidget = wrapInstance(long(mayaMainWinPtr), QtWidgets.QWidget)
+    mayaMainWinPtr = omui.MQtUtil.mainWindow()
+    mayaMainWinWidget = wrapInstance(long(mayaMainWinPtr), QtWidgets.QWidget)  # type: ignore
 
-        return mayaMainWinWidget
+    return mayaMainWinWidget
 
 
 class AniPublisherUI(QtWidgets.QDialog):
+    NAME = 'TAK Ani Publisher_Personal'
+
     def __init__(self, aniPublisher=None, parent=getMayaMainWin()):
         super(AniPublisherUI, self).__init__(parent)
 
         self.aniPubObj = aniPublisher
         self.publishItemWidgets = []
 
-        self.setWindowTitle('{0} - {1}'.format(self.aniPubObj.NAME, self.aniPubObj.VERSION))
+        self.setWindowTitle('{0} - {1}'.format(AniPublisherUI.NAME, constants.VERSION))
         self.setWindowIcon(QtGui.QIcon(':out_timeEditorAnimSource.png'))
         self.resize(1000, 1000)
 
@@ -54,7 +43,7 @@ class AniPublisherUI(QtWidgets.QDialog):
         self.settingsAction = self.editMenu.addAction('Settings')
 
         self.itemMasterChkBox = QtWidgets.QCheckBox()
-        self.itemMasterBakeSpaceCb = QtWidgets.QComboBox()
+        self.itemMasterMoveToOriginChkBox = QtWidgets.QCheckBox()
         self.itemMasterExportDirLe = QtWidgets.QLineEdit()
         self.itemMasterGetDirectoryBtn = QtWidgets.QPushButton()
         self.itemMasterStartFrameLe = QtWidgets.QLineEdit()
@@ -72,7 +61,7 @@ class AniPublisherUI(QtWidgets.QDialog):
 
         itemMasterLayout = QtWidgets.QHBoxLayout()
         itemMasterLayout.addWidget(self.itemMasterChkBox)
-        itemMasterLayout.addWidget(self.itemMasterBakeSpaceCb)
+        itemMasterLayout.addWidget(self.itemMasterMoveToOriginChkBox)
         itemMasterLayout.addWidget(self.itemMasterExportDirLe)
         itemMasterLayout.addWidget(self.itemMasterGetDirectoryBtn)
         masterFrameWdg = QtWidgets.QWidget()
@@ -104,8 +93,8 @@ class AniPublisherUI(QtWidgets.QDialog):
         self.settingsAction.triggered.connect(self.showSettingsUI)
 
         self.itemMasterChkBox.stateChanged.connect(self.setItemWidgetsEnable)
-        self.itemMasterBakeSpaceCb.currentTextChanged.connect(self.setItemWidgetsBakeSapce)
-        self.itemMasterGetDirectoryBtn.clicked.connect(lambda : self.setDirectoryPath(self.itemMasterExportDirLe))
+        self.itemMasterMoveToOriginChkBox.stateChanged.connect(self.setItemWidgetsMoveToOrigin)
+        self.itemMasterGetDirectoryBtn.clicked.connect(lambda: self.setDirectoryPath(self.itemMasterExportDirLe))
         self.itemMasterExportDirLe.textChanged.connect(self.setItemWidgetsExportDir)
         self.itemMasterStartFrameLe.textChanged.connect(self.setItemWidgetsStartFrame)
         self.itemMasterEndFrameLe.textChanged.connect(self.setItemWidgetsEndFrame)
@@ -117,13 +106,14 @@ class AniPublisherUI(QtWidgets.QDialog):
 
     def setInitialState(self):
         self.itemMasterChkBox.setCheckState(QtCore.Qt.Checked)
-        self.itemMasterBakeSpaceCb.addItems(['world', 'local'])
         self.itemMasterGetDirectoryBtn.setIcon(QtGui.QIcon(':fileOpen.png'))
 
-    def setItemWidgetsBakeSapce(self, space):
+    def setItemWidgetsMoveToOrigin(self, val):
         for itemWidget in self.publishItemWidgets:
-            if itemWidget.publishItem.enable:
-                itemWidget.bakeSpaceCb.setCurrentText(space)
+            if val == QtCore.Qt.Checked:
+                itemWidget.moveToOriginChkBox.setCheckState(QtCore.Qt.Checked)
+            else:
+                itemWidget.moveToOriginChkBox.setCheckState(QtCore.Qt.Unchecked)
 
     def setItemWidgetsEnable(self, val):
         for itemWidget in self.publishItemWidgets:
@@ -137,10 +127,7 @@ class AniPublisherUI(QtWidgets.QDialog):
         for pubItemWidget in self.publishItemWidgets:
             pubItems.append(pubItemWidget.publishItem)
         self.aniPubObj.setItems(pubItems)
-        jobDone = self.aniPubObj.publish()
-
-        if jobDone:
-            self.close()
+        self.aniPubObj.publish()
 
     def setDirectoryPath(self, widget):
         curDir = widget.text()
@@ -196,11 +183,10 @@ class PublishItemWidget(QtWidgets.QWidget):
     def createWidgets(self):
         self.enableChkBox = QtWidgets.QCheckBox()
 
-        self.imageLabel = QtWidgets.QLabel()
-        self.imageLabelText = QtWidgets.QLabel()
+        self.publishOptionWidget = QtWidgets.QWidget()
 
-        self.bakeSpaceLabel = QtWidgets.QLabel('Bake Space:')
-        self.bakeSpaceCb = QtWidgets.QComboBox()
+        self.moveToOriginLabel = QtWidgets.QLabel('Move to Origin:')
+        self.moveToOriginChkBox = QtWidgets.QCheckBox()
 
         self.exportDirectoryLabel = QtWidgets.QLabel('Export Directory:')
         self.exportDirectoryLe = QtWidgets.QLineEdit()
@@ -213,25 +199,18 @@ class PublishItemWidget(QtWidgets.QWidget):
         self.startFrameLe = QtWidgets.QLineEdit()
         self.endFrameLe = QtWidgets.QLineEdit()
 
-        self.exportOptionLabel = QtWidgets.QLabel('Export Options:')
-        self.exportSkeletonChkBox = QtWidgets.QCheckBox('Skeleton')
-        self.exportBlendshapeChkBox = QtWidgets.QCheckBox('Blendshape')
+        self.exportNodesLabel = QtWidgets.QLabel('Export Nodes:')
+        self.exportSkeletonLe = QtWidgets.QLineEdit(placeholderText='Skeleton Root Node')
+        self.exportModelLe = QtWidgets.QLineEdit(placeholderText='Model Root Node')
 
     def createLayouts(self):
         mainLayout = QtWidgets.QHBoxLayout(self)
 
         mainLayout.addWidget(self.enableChkBox)
-        PublishItemWidget.addSeparator(mainLayout)
-
-        imageLayout = QtWidgets.QVBoxLayout()
-        imageLayout.addWidget(self.imageLabel, 1, QtCore.Qt.AlignCenter)
-        imageLayout.addWidget(self.imageLabelText, 1, QtCore.Qt.AlignCenter)
-        mainLayout.addLayout(imageLayout)
-        PublishItemWidget.addSeparator(mainLayout)
 
         publishOptionLayout = QtWidgets.QGridLayout()
-        publishOptionLayout.addWidget(self.bakeSpaceLabel, 0, 0, QtCore.Qt.AlignRight)
-        publishOptionLayout.addWidget(self.bakeSpaceCb, 0, 1)
+        publishOptionLayout.addWidget(self.moveToOriginLabel, 0, 0, QtCore.Qt.AlignRight)
+        publishOptionLayout.addWidget(self.moveToOriginChkBox, 0, 1)
 
         publishOptionLayout.addWidget(self.exportDirectoryLabel, 1, 0, QtCore.Qt.AlignRight)
         publishOptionLayout.addWidget(self.exportDirectoryLe, 1, 1)
@@ -250,35 +229,30 @@ class PublishItemWidget(QtWidgets.QWidget):
         frameLo.addWidget(self.endFrameLe)
         publishOptionLayout.addWidget(frameWdg, 3, 1)
 
-        publishOptionLayout.addWidget(self.exportOptionLabel, 4, 0, QtCore.Qt.AlignRight)
-        exportOptionWidget = QtWidgets.QWidget()
-        exportOptionWidget.setFixedWidth(250)
-        exportOptionLayout = QtWidgets.QHBoxLayout(exportOptionWidget)
-        exportOptionLayout.addWidget(self.exportSkeletonChkBox)
-        exportOptionLayout.addWidget(self.exportBlendshapeChkBox)
-        publishOptionLayout.addWidget(exportOptionWidget, 4, 1)
+        publishOptionLayout.addWidget(self.exportNodesLabel, 4, 0, QtCore.Qt.AlignRight)
+        exportNodesWidget = QtWidgets.QWidget()
+        exportNodesLayout = QtWidgets.QHBoxLayout(exportNodesWidget)
+        exportNodesLayout.addWidget(self.exportSkeletonLe)
+        exportNodesLayout.addWidget(self.exportModelLe)
+        publishOptionLayout.addWidget(exportNodesWidget, 4, 1)
 
-        mainLayout.addLayout(publishOptionLayout)
+        self.publishOptionWidget.setLayout(publishOptionLayout)
+        mainLayout.addWidget(self.publishOptionWidget)
 
     def createConnections(self):
         self.enableChkBox.stateChanged.connect(self.setPublishItemEnable)
-        self.bakeSpaceCb.currentTextChanged.connect(self.setPublishItemBakeSapce)
-        self.getDirectoryBtn.clicked.connect(lambda : self.setDirectoryPath(self.exportDirectoryLe))
+        self.moveToOriginChkBox.stateChanged.connect(self.setPublishItemMoveToOrigin)
+        self.getDirectoryBtn.clicked.connect(lambda: self.setDirectoryPath(self.exportDirectoryLe))
         self.exportDirectoryLe.textChanged.connect(self.setPublishItemExportDirectory)
         self.filenameLe.textChanged.connect(self.setPublishItemFilename)
         self.startFrameLe.textChanged.connect(self.setStartFrame)
         self.endFrameLe.textChanged.connect(self.setEndFrame)
-        self.exportSkeletonChkBox.stateChanged.connect(self.setPublishItemExportSkeleton)
-        self.exportBlendshapeChkBox.stateChanged.connect(self.setPublishItemExportBlendshape)
+        self.exportSkeletonLe.textChanged.connect(self.setPublishItemExportSkeleton)
+        self.exportModelLe.textChanged.connect(self.setPublishItemExportModel)
 
     def initializeWidgets(self):
         self.enableChkBox.setCheckState(QtCore.Qt.Checked)
 
-        pixmap = QtGui.QPixmap(self.publishItem.image)
-        self.imageLabel.setPixmap(pixmap.scaled(100, 100, QtCore.Qt.KeepAspectRatio))
-
-        self.imageLabelText.setText(self.publishItem.namespace)
-        self.bakeSpaceCb.addItems(self.publishItem.BAKE_SPACES)
         self.getDirectoryBtn.setIcon(QtGui.QIcon(':fileOpen.png'))
         self.exportDirectoryLe.setText(self.publishItem.exportDirectory)
         self.filenameLe.setText(self.publishItem.filename)
@@ -286,14 +260,15 @@ class PublishItemWidget(QtWidgets.QWidget):
         self.startFrameLe.setText(str(self.publishItem.startFrame))
         self.endFrameLe.setText(str(self.publishItem.endFrame))
 
-        self.exportSkeletonChkBox.setChecked(True)
-        self.exportBlendshapeChkBox.setChecked(False)
-
     def setPublishItemEnable(self, state):
         self.publishItem.enable = bool(state)
+        if state:
+            self.publishOptionWidget.setEnabled(True)
+        else:
+            self.publishOptionWidget.setEnabled(False)
 
-    def setPublishItemBakeSapce(self, text):
-        self.publishItem.bakeSpace = text
+    def setPublishItemMoveToOrigin(self, val):
+        self.publishItem.moveToOrigin = val
 
     def setDirectoryPath(self, widget):
         curDir = widget.text()
@@ -320,11 +295,11 @@ class PublishItemWidget(QtWidgets.QWidget):
     def setEndFrame(self, frame):
         self.publishItem.endFrame = frame
 
-    def setPublishItemExportSkeleton(self, state):
-        self.publishItem.exportSkeleton = bool(state)
+    def setPublishItemExportSkeleton(self, text):
+        self.publishItem.skeletonRoot = text
 
-    def setPublishItemExportBlendshape(self, state):
-        self.publishItem.exportBlendshape = bool(state)
+    def setPublishItemExportModel(self, text):
+        self.publishItem.modelRoot = text
 
     @staticmethod
     def addSeparator(layout):
