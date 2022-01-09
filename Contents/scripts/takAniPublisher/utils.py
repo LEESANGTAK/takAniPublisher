@@ -95,8 +95,14 @@ def getSettings():
     return settings
 
 
-def isParentConstrained(obj):
-    return bool(obj.inputs(type='parentConstraint'))
+def isConstrained(obj):
+    result = False
+    constraints = obj.inputs(type='constraint')
+    if constraints:
+        for const in constraints:
+            if const.nodeType() in ['parentConstraint', 'pointConstraint', 'orientConstraint']:
+                result = True
+    return result
 
 
 class PerformanceChecker(object):

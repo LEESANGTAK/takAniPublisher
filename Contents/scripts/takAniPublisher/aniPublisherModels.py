@@ -81,7 +81,7 @@ class AniPublisher(object):
     def makeSkeletonRootInWorld(self, skelRoot):
         skelRootLoc = None
         skelRootInheritsTransformValOrig = skelRoot.inheritsTransform.get()
-        isParentConst = utils.isParentConstrained(skelRoot)
+        isParentConst = utils.isConstrained(skelRoot)
         if not isParentConst:  # Turning off inheritsTransform will make skeletonRoot jump to other position if not constrained
             skelRootLoc = pm.spaceLocator(n='{0}_loc'.format(skelRoot))
             pm.matchTransform(skelRootLoc, skelRoot)
