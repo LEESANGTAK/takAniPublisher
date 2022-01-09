@@ -81,12 +81,11 @@ class AniPublisher(object):
     def makeSkeletonRootInWorld(self, skelRoot):
         skelRootLoc = None
         skelRootInheritsTransformValOrig = skelRoot.inheritsTransform.get()
-        isConst = utils.isConstrained(skelRoot)
-        if not isConst:  # Turning off inheritsTransform will make skeletonRoot jump to other position if not constrained
+        isParentConst = utils.isParentConstrained(skelRoot)
+        if not isParentConst:  # Turning off inheritsTransform will make skeletonRoot jump to other position if not constrained
             skelRootLoc = pm.spaceLocator(n='{0}_loc'.format(skelRoot))
             pm.matchTransform(skelRootLoc, skelRoot)
             pm.parentConstraint(skelRootLoc, skelRoot)
-            pm.scaleConstraint(skelRootLoc, skelRoot)
         skelRoot.inheritsTransform.set(False)
 
         return skelRootLoc, skelRootInheritsTransformValOrig
@@ -113,8 +112,9 @@ class AniPublisher(object):
                 subStrs += subStr
         contents = contents.replace(''.join(finds), subStrs)
 
-        # Parent skeletonRoot to the world
+        # Parent export nodes to the world
         contents = re.sub(r'(\t;Model.*?{0}, Model::).*?(\n\tC: "OO",\d+),\d+\n'.format(pubItem.skeletonRoot), r'\1RootNode\2,0\n', contents)
+        contents = re.sub(r'(\t;Model.*?{0}, Model::).*?(\n\tC: "OO",\d+),\d+\n'.format(pubItem.modelRoot), r'\1RootNode\2,0\n', contents)
 
         if pubItem.moveToOrigin:
             jointOrientStr = '0,0,0'
@@ -137,10 +137,17 @@ class AniPublisher(object):
             skelRootNewBlock = skelRootOldBlock.group().replace(skelRootPropertyOld, skelRootPropertyNew)
             contents = contents.replace(skelRootOldBlock.group(), skelRootNewBlock)
 
-            contents = re.sub(r'\t;AnimCurveNode::.*?Model::.*?%s\n\tC: "OP".*?\n' % (pubItem.skeletonRoot), '', contents)  # Remove skeletonRoot anim curves
+            # Remove skeletonRoot anim curves
+            contents = re.sub(r'\t;AnimCurveNode::.*?Model::.*?%s\n\tC: "OP".*?\n' % (pubItem.skeletonRoot), '', contents)
+
+        # Remove topTransforms
+        for topTransform in pubItem.topTransforms:
+            srchObj = re.search(r'\tModel:.*?"Model::%s", "\w+?" {.*?{.*?\t\t}.*?}\n' % (topTransform), contents, re.DOTALL)
+            if srchObj:
+                contents = contents.replace(srchObj.group(), '')
 
         # Remove namespace
-        contents = contents.replace(':'+pubItem.namespace, '')
+        contents = contents.replace(pubItem.namespace+':', '')
 
         with open(fbxFile, 'w') as f:
             f.write(contents.encode('utf-8'))
@@ -164,13 +171,10 @@ class PublishItem(object):
 
     def __init__(self, refNode):
         self.exportDirectory = ''
-        self.filename = ''
         self.enable = True
         self.moveToOrigin = False
         self.exportSkeleton = True
         self.exportModel = False
-        self.startFrame = 0
-        self.endFrame = 1
 
         self.refNode = refNode
         self.refFile = None
@@ -178,6 +182,7 @@ class PublishItem(object):
         self.namespace = None
         self.modelRoot = None
         self.skeletonRoot = None
+        self.topTransforms = []
 
         self.clips = []
 
@@ -190,9 +195,7 @@ class PublishItem(object):
         self.image = PublishItem.getImage(self.refFile)
         self.namespace = pm.referenceQuery(self.refNode, namespace=True, shortName=True)
         self.exportDirectory = self.getExportDirectory(self.refFile)
-        self.filename = self.namespace
-        self.startFrame = pm.env.minTime
-        self.endFrame = pm.env.maxTime
+        self.topTransforms = self.getTopTransforms(self.refFile)
 
     def getExportDirectory(self, refFile):
         exportDirectory = None
@@ -203,6 +206,15 @@ class PublishItem(object):
             exportDirectory = self.settings['customExportDirectory']
 
         return exportDirectory
+
+    def getTopTransforms(self, refFile):
+        topTransforms = []
+        for node in pm.referenceQuery(refFile, nodes=True):
+            if pm.nodeType(node) == 'transform':
+                node = pm.PyNode(node)
+                if not node.getParent():
+                    topTransforms.append(node)
+        return topTransforms
 
 
 class Clip(object):

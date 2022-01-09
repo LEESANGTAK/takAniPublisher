@@ -95,8 +95,8 @@ def getSettings():
     return settings
 
 
-def isConstrained(obj):
-    return bool(obj.inputs(type='constraint'))
+def isParentConstrained(obj):
+    return bool(obj.inputs(type='parentConstraint'))
 
 
 class PerformanceChecker(object):

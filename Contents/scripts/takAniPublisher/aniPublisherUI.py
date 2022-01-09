@@ -9,7 +9,6 @@ from . import settingsUI
 from . import constants
 from . import aniPublisherModels as aniPubModels
 
-reload(takAniPublisher)  # type: ignore
 reload(settingsUI)  # type: ignore
 reload(aniPubModels)  # type: ignore
 
@@ -271,10 +270,14 @@ class PublishItemWidget(QtWidgets.QWidget):
     def setPublishItemExportSkeleton(self, val):
         self.publishItem.exportSkeleton = val
         self.exportSkeletonLe.setEnabled(val)
+        if not val:
+            self.exportSkeletonLe.setText('')
 
     def setPublishItemExportModel(self, val):
         self.publishItem.exportModel = val
         self.exportModelLe.setEnabled(val)
+        if not val:
+            self.exportModelLe.setText('')
 
     def setPublishItemExportSkeletonRoot(self, text):
         self.publishItem.skeletonRoot = text
