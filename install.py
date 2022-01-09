@@ -7,7 +7,7 @@ import maya.mel as mel
 
 MAYA_VERSION = int(cmds.about(version=True))
 MODULE_NAME = os.path.dirname(__file__).rsplit('/', 1)[-1]
-MODULE_VERSION = '2.0.0'
+MODULE_VERSION = '1.0.0'
 MODULE_PATH = os.path.dirname(__file__) + '/Contents'
 
 
@@ -17,6 +17,7 @@ def onMayaDroppedPythonFile(*args, **kwargs):
     addScriptPath()
     loadPlugins()
     addShelfButtons()
+
 
 def getModulesDirectory():
     modulesDir = None
@@ -30,6 +31,7 @@ def getModulesDirectory():
 
     return modulesDir
 
+
 def createModuleFile(modulesDir):
     moduleFileName = '{0}.mod'.format(MODULE_NAME)
     contents = '+ MAYAVERSION:{0} {1} {2} {3}'.format(MAYA_VERSION, MODULE_NAME, MODULE_VERSION, MODULE_PATH)
@@ -37,16 +39,20 @@ def createModuleFile(modulesDir):
     with open(os.path.join(modulesDir, moduleFileName), 'w') as f:
         f.write(contents)
 
+
 def addScriptPath():
     scriptPath = os.path.join(MODULE_PATH, 'scripts')
     sys.path.append(scriptPath)
 
+
 def loadPlugins():
     pluginsPath = os.path.join(MODULE_PATH, 'plug-ins')
-    pluginFiles = os.listdir(pluginsPath)
-    if pluginFiles:
-        for pluginFile in pluginFiles:
-            cmds.loadPlugin(os.path.join(pluginsPath, pluginFile))
+    if os.path.exists(pluginsPath):
+        pluginFiles = os.listdir(pluginsPath)
+        if pluginFiles:
+            for pluginFile in pluginFiles:
+                cmds.loadPlugin(os.path.join(pluginsPath, pluginFile))
+
 
 def addShelfButtons():
     curShelf = getCurrentShelf()
@@ -66,6 +72,7 @@ apCtrlObj.showUI()
         image1='out_timeEditorAnimSource.png',
         parent=curShelf
     )
+
 
 def getCurrentShelf():
     curShelf = None
