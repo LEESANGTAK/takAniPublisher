@@ -37,7 +37,7 @@ class AniPublisherCtrl(object):
         rigRefNodes = []
 
         for refNode in self.__validRefNodes:
-            for node in pm.referenceQuery(refNode, nodes=True):
+            for node in pm.referenceQuery(refNode, nodes=True, dagPath=True):
                 if pm.nodeType(node) == 'joint':
                     rigRefNodes.append(refNode)
                     break

@@ -209,7 +209,7 @@ class PublishItem(object):
 
     def getTopTransforms(self, refFile):
         topTransforms = []
-        for node in pm.referenceQuery(refFile, nodes=True):
+        for node in pm.referenceQuery(refFile, nodes=True, dagPath=True):
             if pm.nodeType(node) == 'transform':
                 node = pm.PyNode(node)
                 if not node.getParent():
