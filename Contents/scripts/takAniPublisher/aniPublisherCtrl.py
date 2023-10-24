@@ -1,13 +1,10 @@
+from imp import reload
+
 import pymel.core as pm
 
-from . import aniPublisherModels as apMdl
-from . import aniPublisherUI as apUI
-
-from . import utils
-
-reload(apMdl)  # type: ignore
-reload(apUI)  # type: ignore
-reload(utils)  # type: ignore
+from . import aniPublisherModels as apMdl; reload(apMdl)
+from . import aniPublisherUI as apUI; reload(apUI)
+from . import utils; reload(utils)
 
 
 class AniPublisherCtrl(object):

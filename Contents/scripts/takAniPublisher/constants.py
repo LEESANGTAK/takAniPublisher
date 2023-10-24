@@ -1,7 +1,7 @@
 import os
 
 NAME = 'Tak Ani Publisher'
-VERSION = '1.0.0'
+VERSION = '1.0.1'
 
 CONTENTS_DIR = __file__.split('scripts')[0]
 USER_DOCUMENTS_DIR = os.path.expanduser('~')

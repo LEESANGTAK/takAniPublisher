@@ -55,8 +55,8 @@ class AniPublisher(object):
                 # Select nodes to export
                 if pubItem.exportSkeleton:
                     pm.select(pubItem.skeletonRoot, r=True)
-                if pubItem.exportModel:
-                    pm.select(pubItem.modelRoot, add=True)
+                # if pubItem.exportModel:
+                #     pm.select(pubItem.modelRoot, add=True)
 
                 # Export fbx
                 utils.setFBXExportOptions(clip.startFrame, clip.endFrame)
@@ -114,7 +114,7 @@ class AniPublisher(object):
 
         # Parent export nodes to the world
         contents = re.sub(r'(\t;Model.*?{0}, Model::).*?(\n\tC: "OO",\d+),\d+\n'.format(pubItem.skeletonRoot), r'\1RootNode\2,0\n', contents)
-        contents = re.sub(r'(\t;Model.*?{0}, Model::).*?(\n\tC: "OO",\d+),\d+\n'.format(pubItem.modelRoot), r'\1RootNode\2,0\n', contents)
+        # contents = re.sub(r'(\t;Model.*?{0}, Model::).*?(\n\tC: "OO",\d+),\d+\n'.format(pubItem.modelRoot), r'\1RootNode\2,0\n', contents)
 
         if pubItem.moveToOrigin:
             jointOrientStr = '0,0,0'
@@ -174,13 +174,13 @@ class PublishItem(object):
         self.enable = True
         self.moveToOrigin = False
         self.exportSkeleton = True
-        self.exportModel = False
+        # self.exportModel = False
 
         self.refNode = refNode
         self.refFile = None
         self.image = None
         self.namespace = None
-        self.modelRoot = None
+        # self.modelRoot = None
         self.skeletonRoot = None
         self.topTransforms = []
 

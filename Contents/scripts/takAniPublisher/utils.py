@@ -42,9 +42,9 @@ def setFBXExportOptions(startFrame, endFrame):
 
     mel.eval('FBXResetExport;')
 
-    mel.eval('FBXExportSmoothingGroups -v true;')
-    mel.eval('FBXExportTangents -v true;')
-    mel.eval('FBXExportSmoothMesh -v true;')
+    mel.eval('FBXExportSmoothingGroups -v false;')
+    mel.eval('FBXExportTangents -v false;')
+    mel.eval('FBXExportSmoothMesh -v false;')
     mel.eval('FBXExportTriangulate -v false;')
 
     mel.eval('FBXExportAnimationOnly -v false;')
@@ -57,8 +57,8 @@ def setFBXExportOptions(startFrame, endFrame):
     mel.eval('FBXExportBakeResampleAnimation -v false;')
     mel.eval('FBXExportApplyConstantKeyReducer -v false;')
 
-    mel.eval('FBXExportSkins -v true;')
-    mel.eval('FBXExportShapes -v true;')
+    mel.eval('FBXExportSkins -v false;')
+    mel.eval('FBXExportShapes -v false;')
 
     mel.eval('FBXExportLights -v false;')
     mel.eval('FBXExportCameras -v false;')
@@ -78,9 +78,9 @@ def setFBXExportOptions(startFrame, endFrame):
     mel.eval('FBXExportConvertUnitString cm;')
 
     mel.eval('FBXExportInAscii -v true;')
-    mel.eval('FBXExportReferencedAssetsContent -v true;')
+    mel.eval('FBXExportReferencedAssetsContent -v false;')
     mel.eval('FBXExportUseSceneName -v false;')
-    mel.eval('FBXExportFileVersion -v FBX201800;')
+    mel.eval('FBXExportFileVersion -v FBX202000;')
 
 
 def showJoints(joints):

@@ -1,3 +1,5 @@
+from imp import reload
+
 import maya.OpenMayaUI as omui
 
 import os
@@ -5,12 +7,9 @@ from shiboken2 import wrapInstance
 from PySide2 import QtWidgets, QtCore, QtGui
 
 from . import logger
-from . import settingsUI
-from . import constants
+from . import settingsUI; reload(settingsUI)
+from . import constants; reload(aniPubModels)
 from . import aniPublisherModels as aniPubModels
-
-reload(settingsUI)  # type: ignore
-reload(aniPubModels)  # type: ignore
 
 
 def getMayaMainWin():
@@ -34,9 +33,9 @@ class AniPublisherUI(QtWidgets.QDialog):
         self.resize(900, 1000)
 
         self.createWidgets()
-        self.createLayouts()
-        self.createConnections()
-        self.setInitialState()
+        self.layoutWidgets()
+        self.connectWidgets()
+        self.setDefaults()
 
     def createWidgets(self):
         self.menuBar = QtWidgets.QMenuBar()
@@ -55,7 +54,7 @@ class AniPublisherUI(QtWidgets.QDialog):
 
         self.publishBtn = QtWidgets.QPushButton('Publish Animation')
 
-    def createLayouts(self):
+    def layoutWidgets(self):
         mainLayout = QtWidgets.QVBoxLayout(self)
 
         mainLayout.addWidget(self.menuBar)
@@ -85,7 +84,7 @@ class AniPublisherUI(QtWidgets.QDialog):
 
         mainLayout.addWidget(self.publishBtn)
 
-    def createConnections(self):
+    def connectWidgets(self):
         self.settingsAction.triggered.connect(self.showSettingsUI)
 
         self.itemMasterChkBox.stateChanged.connect(self.setItemWidgetsEnable)
@@ -98,7 +97,7 @@ class AniPublisherUI(QtWidgets.QDialog):
         setUI = settingsUI.SettingsUI(self)
         setUI.show()
 
-    def setInitialState(self):
+    def setDefaults(self):
         self.itemMasterChkBox.setMinimumWidth(50)
         self.itemMasterChkBox.setCheckState(QtCore.Qt.Checked)
         self.itemMasterMoveToOriginChkBox.setMinimumWidth(50)
@@ -163,9 +162,9 @@ class PublishItemWidget(QtWidgets.QWidget):
         self.clipWidgets = []
 
         self.createWidgets()
-        self.createLayouts()
-        self.createConnections()
-        self.initializeWidgets()
+        self.layoutWidgets()
+        self.connectWidgets()
+        self.setDefaults()
 
     def createWidgets(self):
         self.enableChkBox = QtWidgets.QCheckBox()
@@ -178,21 +177,21 @@ class PublishItemWidget(QtWidgets.QWidget):
         self.moveToOriginLabel = QtWidgets.QLabel('Move to Origin: ')
         self.moveToOriginChkBox = QtWidgets.QCheckBox()
 
-        self.exportSkelLabel = QtWidgets.QLabel('Export Skeleton: ')
-        self.exportSkelChkBox = QtWidgets.QCheckBox()
+        # self.exportSkelLabel = QtWidgets.QLabel('Export Skeleton: ')
+        # self.exportSkelChkBox = QtWidgets.QCheckBox()
 
-        self.exportModelLabel = QtWidgets.QLabel('Export Model: ')
-        self.exportModelChkBox = QtWidgets.QCheckBox()
+        # self.exportModelLabel = QtWidgets.QLabel('Export Model: ')
+        # self.exportModelChkBox = QtWidgets.QCheckBox()
 
-        self.exportNodesLabel = QtWidgets.QLabel('Export Nodes:')
+        self.exportNodesLabel = QtWidgets.QLabel('Skeleton Root:')
         self.exportSkeletonLe = QtWidgets.QLineEdit(placeholderText='Skeleton Root Node')
-        self.exportModelLe = QtWidgets.QLineEdit(placeholderText='Model Root Node')
+        # self.exportModelLe = QtWidgets.QLineEdit(placeholderText='Model Root Node')
 
         self.exportDirectoryLabel = QtWidgets.QLabel('Export Directory:')
         self.exportDirectoryLe = QtWidgets.QLineEdit()
         self.getDirectoryBtn = QtWidgets.QPushButton()
 
-    def createLayouts(self):
+    def layoutWidgets(self):
         mainLayout = QtWidgets.QHBoxLayout(self)
 
         mainLayout.addWidget(self.enableChkBox)
@@ -209,16 +208,17 @@ class PublishItemWidget(QtWidgets.QWidget):
         checkLayout = QtWidgets.QHBoxLayout()
         checkLayout.addWidget(self.moveToOriginLabel)
         checkLayout.addWidget(self.moveToOriginChkBox)
-        checkLayout.addWidget(self.exportSkelLabel)
-        checkLayout.addWidget(self.exportSkelChkBox)
-        checkLayout.addWidget(self.exportModelLabel)
-        checkLayout.addWidget(self.exportModelChkBox)
+        checkLayout.addStretch()
+        # checkLayout.addWidget(self.exportSkelLabel)
+        # checkLayout.addWidget(self.exportSkelChkBox)
+        # checkLayout.addWidget(self.exportModelLabel)
+        # checkLayout.addWidget(self.exportModelChkBox)
         publishOptionLayout.addLayout(checkLayout)
 
         exportNodesLayout = QtWidgets.QHBoxLayout()
         exportNodesLayout.addWidget(self.exportNodesLabel)
         exportNodesLayout.addWidget(self.exportSkeletonLe)
-        exportNodesLayout.addWidget(self.exportModelLe)
+        # exportNodesLayout.addWidget(self.exportModelLe)
         publishOptionLayout.addLayout(exportNodesLayout)
 
         exportDirLayout = QtWidgets.QHBoxLayout()
@@ -234,21 +234,21 @@ class PublishItemWidget(QtWidgets.QWidget):
 
         mainLayout.addWidget(self.publishOptionWidget)
 
-    def createConnections(self):
+    def connectWidgets(self):
         self.enableChkBox.stateChanged.connect(self.setPublishItemEnable)
         self.moveToOriginChkBox.stateChanged.connect(self.setPublishItemMoveToOrigin)
-        self.exportSkelChkBox.stateChanged.connect(self.setPublishItemExportSkeleton)
-        self.exportModelChkBox.stateChanged.connect(self.setPublishItemExportModel)
+        # self.exportSkelChkBox.stateChanged.connect(self.setPublishItemExportSkeleton)
+        # self.exportModelChkBox.stateChanged.connect(self.setPublishItemExportModel)
         self.exportSkeletonLe.textChanged.connect(self.setPublishItemExportSkeletonRoot)
-        self.exportModelLe.textChanged.connect(self.setPublishItemExportModelRoot)
+        # self.exportModelLe.textChanged.connect(self.setPublishItemExportModelRoot)
         self.getDirectoryBtn.clicked.connect(lambda: self.setDirectoryPath(self.exportDirectoryLe))
         self.exportDirectoryLe.textChanged.connect(self.setPublishItemExportDirectory)
 
-    def initializeWidgets(self):
+    def setDefaults(self):
         self.enableChkBox.setCheckState(QtCore.Qt.Checked)
-        self.exportSkelChkBox.setCheckState(QtCore.Qt.Checked)
-        self.exportModelChkBox.setToolTip('Enable when needs to export blendshape')
-        self.exportModelLe.setEnabled(False)
+        # self.exportSkelChkBox.setCheckState(QtCore.Qt.Checked)
+        # self.exportModelChkBox.setToolTip('Enable when needs to export blendshape')
+        # self.exportModelLe.setEnabled(False)
 
         pixmap = QtGui.QPixmap(self.publishItem.image)
         self.imageLabel.setPixmap(pixmap.scaled(100, 100, QtCore.Qt.KeepAspectRatio))
@@ -267,23 +267,23 @@ class PublishItemWidget(QtWidgets.QWidget):
     def setPublishItemMoveToOrigin(self, val):
         self.publishItem.moveToOrigin = val
 
-    def setPublishItemExportSkeleton(self, val):
-        self.publishItem.exportSkeleton = val
-        self.exportSkeletonLe.setEnabled(val)
-        if not val:
-            self.exportSkeletonLe.setText('')
+    # def setPublishItemExportSkeleton(self, val):
+    #     self.publishItem.exportSkeleton = val
+    #     self.exportSkeletonLe.setEnabled(val)
+    #     if not val:
+    #         self.exportSkeletonLe.setText('')
 
-    def setPublishItemExportModel(self, val):
-        self.publishItem.exportModel = val
-        self.exportModelLe.setEnabled(val)
-        if not val:
-            self.exportModelLe.setText('')
+    # def setPublishItemExportModel(self, val):
+    #     self.publishItem.exportModel = val
+    #     self.exportModelLe.setEnabled(val)
+    #     if not val:
+    #         self.exportModelLe.setText('')
 
     def setPublishItemExportSkeletonRoot(self, text):
         self.publishItem.skeletonRoot = text
 
-    def setPublishItemExportModelRoot(self, text):
-        self.publishItem.modelRoot = text
+    # def setPublishItemExportModelRoot(self, text):
+    #     self.publishItem.modelRoot = text
 
     def setDirectoryPath(self, widget):
         curDir = widget.text()
@@ -321,8 +321,8 @@ class ClipWidget(QtWidgets.QWidget):
         super(ClipWidget, self).__init__(parent)
 
         self.createWidgets()
-        self.createLayouts()
-        self.createConnections()
+        self.layoutWidgets()
+        self.connectWidgets()
         self.setDefaults()
 
         self.pubWidget = pubWidget
@@ -339,7 +339,7 @@ class ClipWidget(QtWidgets.QWidget):
         self.endFrameLe = QtWidgets.QLineEdit(placeholderText='End')
         self.addBtn = QtWidgets.QPushButton()
 
-    def createLayouts(self):
+    def layoutWidgets(self):
         mainLayout = QtWidgets.QHBoxLayout(self)
         mainLayout.addWidget(self.delBtn)
         mainLayout.addWidget(self.clipNameLe)
@@ -347,7 +347,7 @@ class ClipWidget(QtWidgets.QWidget):
         mainLayout.addWidget(self.endFrameLe)
         mainLayout.addWidget(self.addBtn)
 
-    def createConnections(self):
+    def connectWidgets(self):
         self.clipNameLe.textChanged.connect(self.setClipName)
         self.startFrameLe.textChanged.connect(self.setStartFrame)
         self.endFrameLe.textChanged.connect(self.setEndFrame)
