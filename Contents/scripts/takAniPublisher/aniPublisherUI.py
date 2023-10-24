@@ -8,8 +8,8 @@ from PySide2 import QtWidgets, QtCore, QtGui
 
 from . import logger
 from . import settingsUI; reload(settingsUI)
-from . import constants; reload(aniPubModels)
-from . import aniPublisherModels as aniPubModels
+from . import aniPublisherModels as aniPubModels; reload(aniPubModels)
+from . import constants
 
 
 def getMayaMainWin():
